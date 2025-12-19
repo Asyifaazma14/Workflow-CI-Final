@@ -1,88 +1,66 @@
 import argparse
 import os
-import re
-
 import mlflow
 import mlflow.sklearn
 import pandas as pd
+
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
 
-def clean_text(s: str) -> str:
-    """Strip whitespace + hapus quote pembungkus (' atau ") + rapihin whitespace."""
-    if s is None:
-        return ""
-    s = str(s).strip()
-    # hapus quote pembungkus berulang (misal: ''Sleep Disorder'' / "Sleep Disorder")
-    while (len(s) >= 2) and ((s[0] == s[-1]) and (s[0] in ["'", '"'])):
-        s = s[1:-1].strip()
-    # rapihin multiple spaces jadi 1
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
-
-
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--data_path", type=str, required=True)
-    p.add_argument("--target_col", type=str, required=True)
-    p.add_argument("--experiment_name", type=str, required=True)
-    p.add_argument("--tracking_uri", type=str, default="file:./mlruns")
+
+    # Terima BOTH style: --data_path dan --data-path (biar ga rewel)
+    p.add_argument("--data_path", "--data-path", dest="data_path", type=str, required=True)
+    p.add_argument("--target_col", "--target-col", dest="target_col", type=str, required=True)
+    p.add_argument("--experiment_name", "--experiment-name", dest="experiment_name", type=str, required=True)
+    p.add_argument("--tracking_uri", "--tracking-uri", dest="tracking_uri", type=str, required=True)
+
     return p.parse_args()
 
 
 def main():
     args = parse_args()
 
-    data_path = clean_text(args.data_path)
-    target_in = clean_text(args.target_col)
-    exp_name = clean_text(args.experiment_name)
-    tracking_uri = clean_text(args.tracking_uri)
+    if not os.path.exists(args.data_path):
+        raise FileNotFoundError(f"Dataset tidak ditemukan: {args.data_path}")
 
-    if not os.path.exists(data_path):
-        raise FileNotFoundError(f"Dataset tidak ditemukan: {data_path}")
+    df = pd.read_csv(args.data_path)
+    df.columns = df.columns.str.strip()
 
-    df = pd.read_csv(data_path)
-
-    # normalisasi nama kolom CSV
-    df.columns = [clean_text(c) for c in df.columns]
-
-    # cari kolom target secara robust (case-insensitive)
-    col_map = {clean_text(c).lower(): c for c in df.columns}
-    key = target_in.lower()
-
-    if key not in col_map:
+    if args.target_col not in df.columns:
         raise ValueError(
-            f"Target col '{target_in}' tidak ada.\n"
-            f"Kolom tersedia: {df.columns.tolist()}"
+            f"Target col '{args.target_col}' tidak ada. Kolom tersedia: {df.columns.tolist()}"
         )
 
-    target_col = col_map[key]
-
-    X = df.drop(columns=[target_col])
-    y = df[target_col]
+    X = df.drop(columns=[args.target_col])
+    y = df[args.target_col]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # CI: pakai file store biar gak butuh server 127.0.0.1
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment(exp_name)
+    # tracking uri dari workflow (file:./mlruns)
+    mlflow.set_tracking_uri(args.tracking_uri)
+    mlflow.set_experiment(args.experiment_name)
 
-    # WAJIB autolog (tanpa log manual)
+    # WAJIB: autolog only (tanpa mlflow.log_* manual)
     mlflow.sklearn.autolog(log_models=True)
 
-    model = RandomForestClassifier(
-        n_estimators=200,
-        max_depth=10,
-        random_state=42
-    )
+    params = {"n_estimators": 200, "max_depth": 10}
 
-    model.fit(X_train, y_train)
-    _ = model.score(X_test, y_test)
+    # Jangan start_run dengan run_id aneh2. Cukup start run normal.
+    with mlflow.start_run(run_name=f"RF_baseline_{params['n_estimators']}_{params['max_depth']}"):
+        model = RandomForestClassifier(
+            n_estimators=params["n_estimators"],
+            max_depth=params["max_depth"],
+            random_state=42
+        )
+        model.fit(X_train, y_train)
+        _ = model.score(X_test, y_test)
 
-    print("Training selesai. Cek mlruns artifact di workflow.")
+    print("[OK] Training selesai. Artefak & metrik tersimpan di MLflow.")
 
 
 if __name__ == "__main__":
