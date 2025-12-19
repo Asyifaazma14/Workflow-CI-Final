@@ -25,8 +25,9 @@ jobs:
           pip install mlflow pandas scikit-learn
 
       - name: Run MLflow Project (retrain)
+        working-directory: MLProject
         run: >
-          mlflow run ./MLProject --env-manager=local
+          mlflow run . --env-manager=local
           -P data_path=namadataset_preprocessing/data_bersih_eksperimen.csv
           -P target_col="Sleep Disorder"
           -P experiment_name="CI_Retrain_RF_Baseline"
@@ -36,7 +37,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mlflow-mlruns
-          path: mlruns
+          path: MLProject/mlruns
+
 
   docker:
     needs: retrain
