@@ -19,6 +19,7 @@ def parse_args():
 
 def main():
     args = parse_args()
+    args.target_col = args.target_col.strip()
 
     # --- Validasi file ada ---
     if not os.path.exists(args.data_path):
