@@ -13,6 +13,8 @@ entry_points:
     command: >
       python modelling.py
       --data-path {data_path}
-      --target-col "{target_col}"
-      --experiment-name "{experiment_name}"
-      --tracking-uri "{tracking_uri}"
+      --target-col {target_col}
+      --experiment-name {experiment_name}
+      --tracking-uri {tracking_uri}
+
+
