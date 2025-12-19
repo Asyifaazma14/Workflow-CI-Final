@@ -1,4 +1,4 @@
-name: MLflow Project CI Retrain
+name: MLflow Project CI Retrain + Docker
 
 on:
   push:
@@ -9,7 +9,9 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
+
     env:
+      # simpan tracking di folder repo biar bisa di-upload sebagai artifact
       MLFLOW_TRACKING_URI: file:${{ github.workspace }}/mlruns
 
     steps:
@@ -26,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install mlflow pandas scikit-learn
 
-      - name: Run MLflow Project (local env)
+      - name: Run MLflow Project (retrain)
         run: |
           mlflow run MLProject \
             --env-manager=local \
@@ -55,9 +57,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image from MLProject
+      # build docker image dari MLflow Project (paling stabil)
+      - name: Build Docker image from MLflow Project
         run: |
-          docker build -t "${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest" -f MLProject/Dockerfile .
+          docker build -t "${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest" MLProject
 
       - name: Push Docker image
         run: |
