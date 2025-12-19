@@ -1,0 +1,17 @@
+name: sleep-health-mlflow-project
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      data_path: {type: str}
+      target_col: {type: str}
+      experiment_name: {type: str}
+      tracking_uri: {type: str}
+    command: >
+      python modelling.py
+      --data_path {data_path}
+      --target_col "{target_col}"
+      --experiment_name "{experiment_name}"
+      --tracking_uri "{tracking_uri}"
