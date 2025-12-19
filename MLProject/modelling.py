@@ -17,8 +17,9 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # normalize spasi target_col (biar "Sleep  Disorder" -> "Sleep Disorder")
-    target = " ".join(args.target_col.split())
+    target = args.target_col.strip().strip('"').strip("'")
+    target = " ".join(target.split())
+
 
     if not os.path.exists(args.data_path):
         raise FileNotFoundError(f"Dataset tidak ditemukan: {args.data_path}")
