@@ -22,38 +22,45 @@ def main():
         raise FileNotFoundError(f"Dataset tidak ditemukan: {args.data_path}")
 
     df = pd.read_csv(args.data_path)
+
+    # NORMALISASI NAMA KOLOM
     df.columns = df.columns.str.strip()
 
-    if args.target_col not in df.columns:
+    # NORMALISASI TARGET
+    target_clean = args.target_col.strip()
+
+    if target_clean not in df.columns:
         raise ValueError(
-            f"Target col '{args.target_col}' tidak ada. "
+            f"Target col '{target_clean}' tidak ada.\n"
             f"Kolom tersedia: {df.columns.tolist()}"
         )
 
-    X = df.drop(columns=[args.target_col])
-    y = df[args.target_col]
+    X = df.drop(columns=[target_clean])
+    y = df[target_clean]
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
+        stratify=y
     )
 
     mlflow.set_experiment(args.experiment_name)
 
-    # WAJIB: autolog (tanpa manual log)
+    # WAJIB: autolog (sesuai mentor)
     mlflow.sklearn.autolog(log_models=True)
 
-    params = {"n_estimators": 200, "max_depth": 10}
     model = RandomForestClassifier(
-        n_estimators=params["n_estimators"],
-        max_depth=params["max_depth"],
+        n_estimators=200,
+        max_depth=10,
         random_state=42
     )
-    model.fit(X_train, y_train)
 
-    # cukup trigger metric supaya terekam (autolog akan log otomatis)
+    model.fit(X_train, y_train)
     _ = model.score(X_test, y_test)
 
-    print("[OK] Training selesai. Autolog menyimpan metrics + model ke MLflow.")
+    print("Training selesai & tersimpan di MLflow")
 
 
 if __name__ == "__main__":
