@@ -1,15 +1,17 @@
-name: CI_Retrain_RF_Baseline
+name: workflow-ci-mlflow
 
 conda_env: conda.yaml
 
 entry_points:
   main:
     parameters:
-      data_path: {type: string}
+      data_path: {type: path}
       target_col: {type: string}
       experiment_name: {type: string}
+      tracking_uri: {type: string}
     command: >
       python modelling.py
       --data_path {data_path}
       --target_col "{target_col}"
       --experiment_name "{experiment_name}"
+      --tracking_uri "{tracking_uri}"
