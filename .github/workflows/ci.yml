@@ -26,10 +26,10 @@ jobs:
         run: |
           mlflow run ./MLProject \
             --env-manager=local \
-            -P data_path=namadataset_preprocessing/data_bersih_eksperimen.csv \
+            -P data_path="${{ github.workspace }}/MLProject/namadataset_preprocessing/data_bersih_eksperimen.csv" \
             -P target_col="Sleep Disorder" \
             -P experiment_name="CI_Retrain_RF_Baseline" \
-            -P tracking_uri="file:./mlruns"
+            -P tracking_uri="file:${{ github.workspace }}/mlruns"
 
       - name: Upload MLflow artifacts
         uses: actions/upload-artifact@v4
