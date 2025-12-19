@@ -22,13 +22,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install mlflow pandas scikit-learn
 
-      - name: Run MLflow Project (retrain)
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run MLflow Project
         run: |
-          mlflow run ./MLProject --env-manager=local \
-            -P data_path="${{ github.workspace }}/MLProject/namadataset_preprocessing/data_bersih_eksperimen.csv" \
+          mlflow run ./MLProject \
+            --env-manager=local \
+            -P data_path=namadataset_preprocessing/data_bersih_eksperimen.csv \
             -P target_col="Sleep Disorder" \
             -P experiment_name="CI_Retrain_RF_Baseline" \
-            -P tracking_uri="file:${{ github.workspace }}/mlruns"
+            -P tracking_uri="file:./mlruns"
+
+  docker:
+    needs: retrain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker Image
+        run: |
+          docker build -t workflow-ci-final -f MLProject/Dockerfile MLProject
 
       - name: Upload MLflow artifacts
         uses: actions/upload-artifact@v4
