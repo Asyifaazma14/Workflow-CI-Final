@@ -19,9 +19,10 @@ def parse_args():
 
 def main():
     args = parse_args()
-    args.target_col = args.target_col.strip()
 
-    # --- Validasi file ada ---
+    # bikin kebal spasi + kebal quote ganda
+    args.target_col = args.target_col.strip().strip('"').strip("'")
+
     if not os.path.exists(args.data_path):
         raise FileNotFoundError(f"Dataset tidak ditemukan: {args.data_path}")
 
