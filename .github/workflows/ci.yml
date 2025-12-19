@@ -1,4 +1,4 @@
-name: MLflow Project CI Retrain + Docker
+name: MLflow Project CI Retrain
 
 on:
   push:
@@ -9,10 +9,6 @@ on:
 jobs:
   retrain:
     runs-on: ubuntu-latest
-
-    env:
-      # simpan tracking di folder repo biar bisa di-upload sebagai artifact
-      MLFLOW_TRACKING_URI: file:${{ github.workspace }}/mlruns
 
     steps:
       - name: Checkout
@@ -30,13 +26,7 @@ jobs:
 
       - name: Run MLflow Project (retrain)
         run: |
-          mlflow run ./MLProject \
-            --env-manager=local \
-            -P data_path=namadataset_preprocessing/data_bersih_eksperimen.csv \
-            -P target_col="Sleep Disorder" \
-            -P experiment_name=CI_Retrain_RF_Baseline \
-            -P tracking_uri=file:./mlruns
-
+          mlflow run ./MLProject --env-manager=local -P data_path=namadataset_preprocessing/data_bersih_eksperimen.csv -P target_col="Sleep Disorder" -P experiment_name=CI_Retrain_RF_Baseline -P tracking_uri="file:./mlruns"
 
       - name: Upload MLflow runs folder
         uses: actions/upload-artifact@v4
@@ -53,17 +43,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # build docker image dari MLflow Project (paling stabil)
-      - name: Build Docker image from MLflow Project
+      # Dockerfile minimal biar pasti bisa build (nggak tergantung mlflow build-docker dulu)
+      - name: Build image
         run: |
-          docker build -t "${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest" MLProject
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest -f Dockerfile .
 
-      - name: Push Docker image
+      - name: Push image
         run: |
-          docker push "${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest"
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest
