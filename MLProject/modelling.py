@@ -17,20 +17,18 @@ def parse_args():
 def main():
     args = parse_args()
 
+    # bersihin target_col dari quote + spasi aneh
     target = args.target_col.strip().strip('"').strip("'")
     target = " ".join(target.split())
-
 
     if not os.path.exists(args.data_path):
         raise FileNotFoundError(f"Dataset tidak ditemukan: {args.data_path}")
 
     df = pd.read_csv(args.data_path)
-    df.columns = df.columns.astype(str).str.strip()
+    df.columns = df.columns.str.strip()
 
     if target not in df.columns:
-        raise ValueError(
-            f"Target col '{target}' tidak ada. Kolom tersedia: {df.columns.tolist()}"
-        )
+        raise ValueError(f"Target col '{target}' tidak ada. Kolom: {df.columns.tolist()}")
 
     X = df.drop(columns=[target])
     y = df[target]
@@ -42,19 +40,19 @@ def main():
     mlflow.set_tracking_uri(args.tracking_uri)
     mlflow.set_experiment(args.experiment_name)
 
-    # sesuai arahan mentor: autolog only
     mlflow.sklearn.autolog(log_models=True)
 
     params = {"n_estimators": 200, "max_depth": 10}
-    with mlflow.start_run(run_name=f"RF_baseline_{params['n_estimators']}_{params['max_depth']}"):
-        model = RandomForestClassifier(
-            n_estimators=params["n_estimators"],
-            max_depth=params["max_depth"],
-            random_state=42
-        )
-        model.fit(X_train, y_train)
-        _ = model.score(X_test, y_test)
-        print("[OK] Training selesai. Artefak & metrik tersimpan di MLflow.")
+
+    model = RandomForestClassifier(
+        n_estimators=params["n_estimators"],
+        max_depth=params["max_depth"],
+        random_state=42
+    )
+    model.fit(X_train, y_train)
+
+    _ = model.score(X_test, y_test)
+    print("[OK] Training selesai. Autolog simpan metrics & model.")
 
 if __name__ == "__main__":
     main()
