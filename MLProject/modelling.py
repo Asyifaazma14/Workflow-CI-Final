@@ -1,3 +1,4 @@
+import argparse
 import os
 import mlflow
 import mlflow.sklearn
@@ -6,62 +7,60 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-DATA_CLEAN_PATH = os.getenv(
-    "DATA_CLEAN_PATH",
-    "namadataset_preprocessing/data_bersih_eksperimen.csv"
-)
 
-# ❗ PENTING: TANPA SPASI
-TARGET_COL = os.getenv("TARGET_COL", "Sleep Disorder")
-
-EXPERIMENT_NAME = os.getenv(
-    "EXPERIMENT_NAME",
-    "CI_Retrain_RF_Baseline"
-)
-
-MLFLOW_TRACKING_URI = os.getenv(
-    "MLFLOW_TRACKING_URI",
-    "file:./mlruns"
-)
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("--data_path", type=str, required=True)
+    p.add_argument("--target_col", type=str, required=True)
+    p.add_argument("--experiment_name", type=str, required=True)
+    p.add_argument("--tracking_uri", type=str, required=True)
+    return p.parse_args()
 
 
 def main():
-    df = pd.read_csv(DATA_CLEAN_PATH)
+    args = parse_args()
+
+    # --- Validasi file ada ---
+    if not os.path.exists(args.data_path):
+        raise FileNotFoundError(f"Dataset tidak ditemukan: {args.data_path}")
+
+    df = pd.read_csv(args.data_path)
     df.columns = df.columns.str.strip()
 
-    if TARGET_COL not in df.columns:
+    if args.target_col not in df.columns:
         raise ValueError(
-            f"TARGET_COL '{TARGET_COL}' tidak ditemukan. "
-            f"Kolom tersedia: {df.columns.tolist()}"
+            f"Target col '{args.target_col}' tidak ada. Kolom tersedia: {df.columns.tolist()}"
         )
 
-    X = df.drop(columns=[TARGET_COL])
-    y = df[TARGET_COL]
+    X = df.drop(columns=[args.target_col])
+    y = df[args.target_col]
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment(EXPERIMENT_NAME)
+    # --- MLflow setup ---
+    mlflow.set_tracking_uri(args.tracking_uri)
+    mlflow.set_experiment(args.experiment_name)
 
-    # WAJIB AUTLOG – SESUAI MENTOR
-    mlflow.sklearn.autolog(log_models=True)
-
-    model = RandomForestClassifier(
-        n_estimators=200,
-        max_depth=10,
-        random_state=42
-    )
-
+    # PENTING: start_run dulu, baru autolog (biar nggak bentrok run ID dari MLflow Project)
     with mlflow.start_run(run_name="RF_baseline"):
-        model.fit(X_train, y_train)
-        model.score(X_test, y_test)
+        mlflow.sklearn.autolog(
+            log_models=True,
+            log_input_examples=True,
+            log_model_signatures=True
+        )
 
-    print("✅ Training selesai")
+        rf = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=10,
+            random_state=42
+        )
+        rf.fit(X_train, y_train)
+
+        # boleh hitung buat print, tapi JANGAN mlflow.log_* manual
+        acc = rf.score(X_test, y_test)
+        print(f"[OK] Training selesai. Accuracy: {acc:.4f}")
 
 
 if __name__ == "__main__":
