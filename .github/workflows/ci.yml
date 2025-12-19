@@ -1,10 +1,11 @@
-name: MLflow Project CI Retrain
+name: MLflow Project CI Retrain + Docker
 
 on:
   push:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
 
 jobs:
   retrain:
@@ -22,12 +23,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow pandas scikit-learn
+          pip install "mlflow==2.17.2" pandas scikit-learn
 
-      - name: Run MLflow Project (NO conda)
+      - name: Run MLflow Project (local env)
         run: |
           mlflow run MLProject \
-            --no-conda \
+            --env-manager=local \
             -P data_path=namadataset_preprocessing/data_bersih_eksperimen.csv \
             -P target_col="Sleep Disorder" \
             -P experiment_name="CI_Retrain_RF_Baseline" \
@@ -53,10 +54,10 @@ jobs:
         with:
           python-version: "3.9"
 
-      - name: Install MLflow
+      - name: Install MLflow + Docker deps
         run: |
           python -m pip install --upgrade pip
-          pip install mlflow
+          pip install "mlflow==2.17.2"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -64,21 +65,30 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker Image with MLflow
+      # Build image dari MLflow Project (paling stabil)
+      - name: Build Docker image from MLflow Project
+        env:
+          IMAGE_NAME: ${{ secrets.DOCKER_IMAGE }}
         run: |
+          if [ -z "$IMAGE_NAME" ]; then
+            IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow"
+          fi
+
           mlflow run MLProject \
-            --no-conda \
+            --env-manager=local \
+            --build-image \
+            --docker-image-name "$IMAGE_NAME:latest" \
             -P data_path=namadataset_preprocessing/data_bersih_eksperimen.csv \
             -P target_col="Sleep Disorder" \
-            -P experiment_name="CI_Docker_Build" \
-            -P tracking_uri="file:./mlruns" \
-            --build-image
+            -P experiment_name="CI_Retrain_RF_Baseline" \
+            -P tracking_uri="file:./mlruns"
 
-      - name: Tag Docker Image
+      - name: Push Docker image
+        env:
+          IMAGE_NAME: ${{ secrets.DOCKER_IMAGE }}
         run: |
-          docker tag mlflow/mlflow-project:${{ github.sha }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest
+          if [ -z "$IMAGE_NAME" ]; then
+            IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow"
+          fi
 
-      - name: Push Docker Image
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/workflow-ci-mlflow:latest
+          docker push "$IMAGE_NAME:latest"
